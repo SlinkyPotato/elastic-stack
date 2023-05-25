@@ -1,0 +1,43 @@
+instances:
+  - name: elasticsearch
+    dns:
+      - elasticsearch
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: kibana
+    dns:
+      - kibana
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: apm-server
+    dns:
+      - apm-server
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: elastic-agent
+    dns:
+      - elastic-agent
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: filebeat
+    dns:
+      - filebeat
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: logstash
+    dns:
+      - logstash
+      - localhost
+    ip:
+      - 127.0.0.1
+  - name: heartbeat
+    dns:
+      - heartbeat
+      - localhost
+    ip:
+      - 127.0.0.1

@@ -1,0 +1,104 @@
+# Reference: https://www.elastic.co/guide/en/beats/heartbeat/current/heartbeat-reference-yml.html
+# Define a directory to load monitor definitions from. Definitions take the form
+# of individual yaml files.
+heartbeat.config.monitors:
+  # Directory + glob pattern to search for configuration files
+  path: ${path.config}/monitors.d/*.yml
+  # If enabled, heartbeat will periodically check the config.monitors path for changes
+  reload.enabled: false
+  # How often to check for changes
+  reload.period: 5s
+
+heartbeat.monitors:
+- type: tcp
+  id: my-monitor
+  name: my-tcp-monitor
+  schedule: '@every 60s'
+  hosts:
+    - brianpatino.xyz:443
+    - nextcloud.solidchain.xyz:443
+
+# - type: tcp
+#   schedule: '@every 5s'
+#   urls:
+#     - https://elasticsearch:9200
+#     - https://kibana:5601
+#   ssl:
+#     certificate_authorities: ['/etc/ca.crt']
+#     supported_protocols: ["TLSv1.0", "TLSv1.1", "TLSv1.2"]
+
+# - type: icmp
+#   schedule: '@every 5s'
+#   hosts:
+#     - elasticsearch
+#     - kibana
+
+processors:
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
+output.elasticsearch:
+  hosts: ['${ELASTICSEARCH_HOST_PORT}']
+  username: '${ELASTIC_USERNAME}'
+  password: '${ELASTIC_PASSWORD}'
+  ssl:
+    certificate_authorities: ["/etc/client/ca.crt"]
+    certificate: "/certs/heartbeat.crt"
+    key: "/certs/heartbeat.key"
+
+setup.kibana:
+  host: '${KIBANA_HOST_PORT}'
+  protocol: "https"
+  username: "${ELASTIC_USERNAME}"
+  password: "${ELASTIC_PASSWORD}"
+  ssl:
+    enabled: true
+    certificate_authorities: ["/etc/client/ca.crt"]
+    certificate: "/certs/heartbeat.crt"
+    key: "/certs/heartbeat.key"
+
+
+heartbeat.run_from:
+  id: ct-norwalk-geo
+  geo:
+    name: granite
+    continent_name: North America
+    country_iso_code: US
+    region_name: Tri-State
+    region_iso_code: Fairfield
+    city_name: Norwalk
+    timezone: America/New_York
+
+# ============================== Instrumentation ===============================
+
+# Instrumentation support for the heartbeat.
+instrumentation:
+    # Set to true to enable instrumentation of heartbeat.
+    enabled: false
+
+    # Environment in which heartbeat is running on (eg: staging, production, etc.)
+    environment: "production"
+
+    # APM Server hosts to report instrumentation results to.
+    hosts: ["${APM_HOST_PORT}"]
+
+    # API Key for the APM Server(s).
+    # If api_key is set then secret_token will be ignored.
+    #api_key:
+
+    # Secret token for the APM Server(s).
+    secret_token: "${KIBANA_SERVICE_ACCOUNT_TOKEN}"
+
+    # Enable profiling of the server, recording profile samples as events.
+    #
+    # This feature is experimental.
+    #profiling:
+        #cpu:
+            # Set to true to enable CPU profiling.
+            #enabled: false
+            #interval: 60s
+            #duration: 10s
+        #heap:
+            # Set to true to enable heap profiling.
+            #enabled: false
+            #interval: 60s

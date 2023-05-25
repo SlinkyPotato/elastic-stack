@@ -1,0 +1,300 @@
+# Ref: https://github.com/sherifabdlnaby/elastdocker
+# Ref: https://towardsdatascience.com/running-securing-and-deploying-elastic-stack-on-docker-f1a8ebf1dc5b
+
+name: elastic
+services:
+  elasticsearch:
+    container_name: elasticsearch
+    build:
+      context: elasticsearch/
+      args:
+        ELASTIC_VERSION: $ELASTIC_VERSION
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: unless-stopped
+    environment:
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_PASSWORD_URL: ${ELASTIC_PASSWORD_URL}
+      ELASTIC_CLUSTER_NAME: ${ELASTIC_CLUSTER_NAME}
+      ELASTIC_NODE_NAME: ${ELASTIC_NODE_NAME}
+      ELASTIC_INIT_MASTER_NODE: ${ELASTIC_INIT_MASTER_NODE}
+      ELASTIC_DISCOVERY_SEEDS: ${ELASTIC_DISCOVERY_SEEDS}
+      ES_JAVA_OPTS: "-Xmx${ELASTICSEARCH_HEAP} -Xms${ELASTICSEARCH_HEAP} -Des.enforce.bootstrap.checks=true -Dlog4j2.formatMsgNoLookups=true"
+      bootstrap.memory_lock: "true"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./elasticsearch/config/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties
+    secrets:
+      - source: elasticsearch.keystore
+        target: /usr/share/elasticsearch/config/elasticsearch.keystore
+      - source: elasticsearch.service_tokens
+        target: /usr/share/elasticsearch/config/service_tokens
+      - source: elastic.ca
+        target: /usr/share/elasticsearch/config/certs/ca.crt
+      - source: elasticsearch.certificate
+        target: /usr/share/elasticsearch/config/certs/elasticsearch.crt
+      - source: elasticsearch.key
+        target: /usr/share/elasticsearch/config/certs/elasticsearch.key
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 200000
+        hard: 200000
+    networks:
+      - elastic
+ 
+  elastic-agent:
+    container_name: elastic-agent
+    image: docker.elastic.co/beats/elastic-agent:${ELASTIC_VERSION}
+    ports:
+      - "8220:8220"
+    restart: unless-stopped
+    depends_on:
+      kibana:
+        condition: service_healthy
+    user: root
+    networks:
+      - elastic
+    volumes:
+      - ./elasticagent/config/elastic-agent.yml:/usr/share/elastic-agent/elastic-agent.yml
+      - ./var/run/docker.sock:/var/run/docker.sock
+    environment:
+      KIBANA_FLEET_SETUP: 1
+      FLEET_ENROLL: 1
+      FLEET_SERVER_ENABLE: 1
+      FLEET_SERVER_HOST: "${FLEET_SERVER_HOST}"
+      FLEET_SERVER_PORT: ${FLEET_SERVER_PORT}
+      ELASTICSEARCH_CA: "/certs/ca.crt"
+      FLEET_SERVER_CERT: "/certs/elastic-agent.crt"
+      FLEET_SERVER_CERT_KEY: "/certs/elastic-agent.key"
+      FLEET_URL: "https://${FLEET_SERVER_HOST}:${FLEET_SERVER_PORT}"
+      FLEET_SERVER_ELASTICSEARCH_HOST: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      FLEET_SERVER_POLICY_ID: "agent-policy-1"
+      ELASTICSEARCH_USERNAME: ${ELASTIC_USERNAME}
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_LOGSTASH_HOST: "https://${LOGSTASH_HOST}:${LOGSTASH_PORT}"
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      KIBANA_FLEET_HOST: https://${KIBANA_HOST}:${KIBANA_PORT}
+    env_file:
+      - ./secrets/.env.kibana.token
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: elastic-agent.certiicate
+        target: /certs/elastic-agent.crt
+      - source: elastic-agent.key
+        target: /certs/elastic-agent.key
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elastic
+    restart: unless-stopped
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: logstash.certificate
+        target: /certs/logstash.crt
+      - source: logstash.key
+        target: /certs/logstash.key
+    environment:
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      LS_JAVA_OPTS: "-Xmx${LOGSTASH_HEAP} -Xms${LOGSTASH_HEAP} -Dlog4j2.formatMsgNoLookups=true"
+    healthcheck:
+      test: ["CMD", "curl", "-s" ,"-XGET", "http://127.0.0.1:9600"]
+
+  kibana:
+    container_name: kibana
+    build:
+      context: kibana/
+      args:
+        ELASTIC_VERSION: $ELASTIC_VERSION
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./kibana/config/:/usr/share/kibana/config:ro
+    environment:
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTIC_PASSWORD_URL: ${ELASTIC_PASSWORD_URL}
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+    env_file:
+      - ./secrets/.env.kibana.token
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: kibana.certificate
+        target: /certs/kibana.crt
+      - source: kibana.key
+        target: /certs/kibana.key
+    networks:
+      - elastic
+
+  heartbeat:
+    container_name: heartbeat
+    image: docker.elastic.co/beats/heartbeat:${ELASTIC_VERSION}
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    volumes:
+      - heartbeat-data:/usr/share/heartbeat/data
+      - ./heartbeat/config/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+    environment:
+      DOCKER_CAP_ADD: NET_RAW
+      DOCKER_STRICT_PERMS: false
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      KIBANA_HOST_PORT: https://${KIBANA_HOST}:${KIBANA_PORT}
+      APM_HOST_PORT: https://${APMSERVER_HOST}:${APMSERVER_PORT}
+    env_file:
+      ./secrets/.env.kibana.token
+    secrets:
+      - source: elastic.ca
+        target: /etc/client/ca.crt
+      - source: heartbeat.certificate
+        target: /certs/heartbeat.crt
+      - source: heartbeat.key
+        target: /certs/heartbeat.key
+    networks:
+      - elastic
+  
+  apm-server:
+    container_name: apm-server
+    image: docker.elastic.co/apm/apm-server:${ELASTIC_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - kibana
+    ports:
+      - "8200:8200"
+    volumes:
+      - ./apm-server/config/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro
+    networks:
+      - elastic
+    environment:
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      APMSERVER_HOST_PORT: https://${APMSERVER_HOST}:${APMSERVER_PORT}
+    env_file:
+      - ./secrets/.env.kibana.token
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: apm-server.certificate
+        target: /certs/apm-server.crt
+      - source: apm-server.key
+        target: /certs/apm-server.key
+ 
+volumes:
+  elasticsearch-data:
+    external: false
+  heartbeat-data:
+    external: false
+  filebeat-data:
+    external: false
+
+networks:
+  elastic:
+    name: elastic
+    external: false
+
+secrets:
+  elasticsearch.keystore:
+    file: ./secrets/keystore/elasticsearch.keystore
+  elasticsearch.service_tokens:
+    file: ./secrets/service_tokens
+  elastic.ca:
+    file: ./secrets/certs/ca/ca.crt
+  elasticsearch.certificate:
+    file: ./secrets/certs/elasticsearch/elasticsearch.crt
+  elasticsearch.key:
+    file: ./secrets/certs/elasticsearch/elasticsearch.key
+  kibana.certificate:
+    file: ./secrets/certs/kibana/kibana.crt
+  kibana.key:
+    file: ./secrets/certs/kibana/kibana.key
+  apm-server.certificate:
+    file: ./secrets/certs/apm-server/apm-server.crt
+  apm-server.key:
+    file: ./secrets/certs/apm-server/apm-server.key
+  elastic-agent.certiicate:
+    file: ./secrets/certs/elastic-agent/elastic-agent.crt
+  elastic-agent.key:
+    file: ./secrets/certs/elastic-agent/elastic-agent.key
+  heartbeat.certificate:
+    file: ./secrets/certs/heartbeat/heartbeat.crt
+  heartbeat.key:
+    file: ./secrets/certs/heartbeat/heartbeat.key
+  logstash.certificate:
+    file: ./secrets/certs/logstash/logstash.crt
+  logstash.key:
+    file: ./secrets/certs/logstash/logstash.key
+  filebeat.certificate:
+    file: ./secrets/certs/filebeat/filebeat.crt
+  filebeat.key:
+    file: ./secrets/certs/filebeat/filebeat.key
+
+  # filebeat:
+  #   container_name: filebeat
+  #   image: docker.elastic.co/beats/filebeat:${ELASTIC_VERSION}
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - logstash
+  #   networks:
+  #     - elastic
+  #   user: "0"
+  #   volumes:
+  #     - filebeat-data:/usr/share/filebeat/data
+  #     - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+  #     # - /var/run/docker.sock:/var/run/docker.sock
+  #     # This is needed for filebeat to load container log path as specified in filebeat.yml
+  #     # - /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+  #     # # This is needed for filebeat to load jenkins build log path as specified in filebeat.yml
+  #     # - /var/lib/docker/volumes/jenkins_home/_data/jobs/:/var/lib/docker/volumes/jenkins_home/_data/jobs/:ro
+  #     # This is needed for filebeat to load logs for system and auth modules
+  #     - /var/log/:/var/log/:ro
+  #     # This is needed for filebeat to load logs for auditd module. you might have to install audit system
+  #     # on ubuntu first (sudo apt-get install -y auditd audispd-plugins)
+  #     # - /var/log/audit/:/var/log/audit/:ro
+  #   environment:
+  #     ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+  #     KIBANA_HOST_PORT: https://${KIBANA_HOST}:${KIBANA_PORT}
+  #     ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+  #     ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+  #     APM_HOST_PORT: https://${APMSERVER_HOST}:${APMSERVER_PORT}
+  #     LOGSTASH_HOST_PORT: https://${LOGSTASH_HOST}:${LOGSTASH_PORT}
+  #   env_file:
+  #     - ./secrets/.env.apm-server.token
+  #   deploy:
+  #     mode: global
+  #   secrets:
+  #     - source: elastic.ca
+  #       target: /certs/ca.crt
+  #     - source: filebeat.certificate
+  #       target: /certs/filebeat.crt
+  #     - source: filebeat.key
+  #       target: /certs/filebeat.key
+  #   command: ["--strict.perms=false"]
+

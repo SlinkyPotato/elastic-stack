@@ -1,0 +1,26 @@
+id: agent-policy-1
+revision: 1
+outputs:
+  default:
+    type: elasticsearch
+    hosts: [ "${ELASTICSEARCH_HOST_PORT}" ]
+    username: "${ELASTIC_USERNAME}"
+    password: "${ELASTIC_PASSWORD}"
+    ssl:
+      verification_mode: full
+      certificate_authorities: ["/certs/ca.crt"]
+      certificate: "/certs/elastic-agent.crt"
+      key: "/certs/elastic-agent.key"
+
+fleet:
+  hosts:
+    - 'https://elastic-agent:8220'
+
+  # default:
+  #   type: logstash
+  #   hosts: ["${ELASTIC_LOGSTASH_HOST}"]
+  #   ssl:
+  #     verification_mode: full
+  #     certificate_authorities: ["/certs/ca.crt"]
+  #     certificate: "/certs/elastic-agent.crt"
+  #     key: "/certs/elastic-agent.key"  
