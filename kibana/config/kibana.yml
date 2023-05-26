@@ -19,35 +19,74 @@ xpack.encryptedSavedObjects.encryptionKey: G6F0PfCxaqYhDvUbqwv53pXuyRJfnFbIF
 xpack.reporting.encryptionKey: P3M377LH8QPmFpHnpIfWFyCGiQUENlG25
 
 ## X-Pack security credentials
+# cannot use both token + username passwords
 elasticsearch.serviceAccountToken: "${KIBANA_SERVICE_ACCOUNT_TOKEN}"
 elasticsearch.ssl.certificateAuthorities: [ "/certs/ca.crt" ]
 
-
 ## Default Agent policy integration
-xpack.fleet.agents.enabled: true
-xpack.fleet.packages:
-  - name: system
-    version: latest
-  - name: elastic_agent
-    version: latest
-  - name: apm
-    version: latest
-xpack.fleet.agentPolicies:
-  - name: Agent Policy 1
-    id: agent-policy-1
-    namespace: default
-    monitoring_enabled:
-      - logs
-      - metrics
-    package_policies:
-      - name: system-1
-        id: default-system
-        package:
-          name: system
-      - name: apm-1
-        id: default-apm
-        package:
-          name: apm
+xpack.fleet.agents.enabled: false
+# xpack.fleet.agents.fleet_server.hosts: ["${FLEET_SERVER_HOST_PORT}"]
+# xpack.fleet.outputs:
+#   - id: elasticsearch-1
+#     name: default
+#     type: elasticsearch
+#     hosts: [ "${ELASTICSEARCH_HOST_PORT}" ]
+#     is_default: true
+#     is_default_monitoring: true
+#     config:
+#       username: "${ELASTIC_USERNAME}"
+#       password: "${ELASTIC_PASSWORD}"
+#       ssl:
+#         verification_mode: full
+#         certificate_authorities: ["/certs/ca.crt"]
+#         certificate: "/certs/elastic-agent.crt"
+#         key: "/certs/elastic-agent.key"
+
+# Repo found: https://epr.elastic.co/search
+# xpack.fleet.packages:
+#   - name: system
+#     version: latest
+#   # - name: logstash
+#   #   version : latest
+#   - name: elastic_agent
+#     version: latest
+#   - name: apm
+#     version: latest
+#   - name: fleet_server
+#     version : latest
+# xpack.fleet.agentPolicies:
+#   - name: Fleet Server 1
+#     id: ${FLEET_POLICY_ID}
+#     namespace: fleet
+# #     monitoring_enabled:
+# #       - logs
+# #       - metrics
+#     package_policies:
+#       - name: system-1
+#         id: default-system
+#         package:
+#           name: system
+#         namespace: default
+#       - name: apm-1
+#         id: default-apm
+#         package:
+#           name: apm
+#         namespace: default
+#       - name: elastic_agent-1
+#         id: default-agent
+#         package:
+#           name: elastic_agent
+#         namespace: default
+#       - name: fleet_server-1
+#         id: default-fleet
+#         package:
+#           name: fleet_server
+#         namespace: default
+      # - name: logstash-1
+      #   id: default-logstash
+      #   package:
+      #     name: logstash
+      #   namespace: default
 
 ## Misc
 elasticsearch.requestTimeout: 90000

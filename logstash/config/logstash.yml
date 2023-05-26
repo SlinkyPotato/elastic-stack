@@ -1,9 +1,14 @@
 ---
 http.host: "0.0.0.0"
+http.port: 9600
+path.config: /usr/share/logstash/pipeline
 
 ## X-Pack security credentials
-xpack.monitoring.elasticsearch.hosts: [ "${ELASTICSEARCH_HOST_PORT}" ]
-xpack.monitoring.enabled: true
-xpack.monitoring.elasticsearch.username: ${ELASTIC_USERNAME}
-xpack.monitoring.elasticsearch.password: ${ELASTIC_PASSWORD}
-xpack.monitoring.elasticsearch.ssl.certificate_authority: /certs/ca.crt
+# xpack.monitoring.enabled: true
+# xpack.monitoring.elasticsearch.hosts: [ "${ELASTICSEARCH_HOST_PORT}" ]
+# xpack.monitoring.elasticsearch.username: ${ELASTIC_USERNAME}
+# xpack.monitoring.elasticsearch.password: ${ELASTIC_PASSWORD}
+# xpack.monitoring.elasticsearch.ssl.certificate_authority: /certs/ca.crt
+# xpack.monitoring.elasticsearch.ssl.certificate: /certs/logstash.crt
+# xpack.monitoring.elasticsearch.ssl.key: /certs/logstash.key
+# xpack.monitoring.elasticsearch.ssl.verification_mode: certificate
