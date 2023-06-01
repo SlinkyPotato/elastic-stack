@@ -3,6 +3,3 @@
 - pipeline.id: main
   path.config: "/usr/share/logstash/pipeline/main.conf"
   queue.type: memory
-
-- pipeline.id: elastic-agent-pipeline
-  path.config: "/usr/share/logstash/pipeline/elastic-agent-pipeline.conf"

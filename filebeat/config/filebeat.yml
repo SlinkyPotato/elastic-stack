@@ -1,15 +1,63 @@
-filebeat.config:
-  modules:
-    path: ${path.config}/modules.d/*.yml
-    reload.enabled: false
+# filebeat.inputs:
+#   - type: log
+#     paths:
+#       - /var/log/nginx/*.log
 
-filebeat.autodiscover:
-  providers:
-    - type: docker
-      hints.enabled: true
+# filebeat.inputs:
+#   - type: log
+#     enabled: true
+#     paths:
+#       # - /var/lib/docker/containers/*/*.log
+#       - 
 
-processors:
-- add_cloud_metadata: ~
+# filebeat.autodiscover:
+#   providers:
+#     - type: docker
+#       hints.enabled: true
+
+# processors:
+# - add_cloud_metadata: ~
+
+setup.kibana:
+  host: "${KIBANA_HOST_PORT}"
+  username: "${ELASTIC_USERNAME}"
+  password: "${ELASTIC_PASSWORD}"
+  ssl:
+    enabled: true
+    certificate_authorities: ["/certs/ca.crt"]
+    certificate: "/certs/filebeat.crt"
+    key: "/certs/filebeat.key"
+
+filebeat.modules:
+  - module: nginx
+    access:
+      enabled: true
+      var:
+        paths:
+          - /var/log/nginx/access.log
+          - /var/log/nginx/access.log.1
+    error:
+      enabled: true
+      var:
+        paths:
+          - /var/log/nginx/error.log
+          - /var/log/nginx/error.log.1
+
+# filebeat.inputs:
+#   - type: filestream
+#     id: nginx-access-logs
+#     enabled: true
+#     paths:
+#       - /var/log/nginx/access.log
+#       - /var/log/nginx/access.log.1
+#     tags: ["nginx"]
+#   - type: filestream
+#     id: nginx-error-logs
+#     enabled: true
+#     paths:
+#       - /var/log/nginx/error.log
+#       - /var/log/nginx/error.log.1
+#     tags: ["nginx"]
 
 output.elasticsearch:
   hosts: ["${ELASTICSEARCH_HOST_PORT}"]
@@ -20,3 +68,12 @@ output.elasticsearch:
     certificate_authorities: ["/certs/ca.crt"]
     certificate: "/certs/filebeat.crt"
     key: "/certs/filebeat.key"
+
+# output.logstash:
+#   hosts: ["${LOGSTASH_HOST_PORT}"]
+  # ssl:
+  #   enabled: true
+  #   certificate_authorities: ["/certs/ca.crt"]
+  #   certificate: "/certs/filebeat.crt"
+  #   key: "/certs/filebeat.key"
+

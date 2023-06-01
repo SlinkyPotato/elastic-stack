@@ -48,36 +48,36 @@ services:
     networks:
       - elastic
 
-  # logstash:
-  #   container_name: logstash
-  #   image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}
-  #   ports:
-  #     - "5044:5044"
-  #     - "9600:9600"
-  #   depends_on:
-  #     elasticsearch:
-  #       condition: service_healthy
-  #   networks:
-  #     - elastic
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-  #     - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
-  #     - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
-  #   secrets:
-  #     - source: elastic.ca
-  #       target: /certs/ca.crt
-  #     - source: logstash.certificate
-  #       target: /certs/logstash.crt
-  #     - source: logstash.key
-  #       target: /certs/logstash.key
-  #   environment:
-  #     ELASTIC_USERNAME: ${ELASTIC_USERNAME}
-  #     ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-  #     ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
-  #     LS_JAVA_OPTS: "-Xmx${LOGSTASH_HEAP} -Xms${LOGSTASH_HEAP} -Dlog4j2.formatMsgNoLookups=true"
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-s" ,"-XGET", "http://127.0.0.1:9600"]
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - elastic
+    restart: unless-stopped
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    secrets:
+      - source: elastic.ca
+        target: /certs/ca.crt
+      - source: logstash.certificate
+        target: /certs/logstash.crt
+      - source: logstash.key
+        target: /certs/logstash.key
+    environment:
+      ELASTIC_USERNAME: ${ELASTIC_USERNAME}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      LS_JAVA_OPTS: "-Xmx${LOGSTASH_HEAP} -Xms${LOGSTASH_HEAP} -Dlog4j2.formatMsgNoLookups=true"
+    healthcheck:
+      test: ["CMD", "curl", "-s" ,"-XGET", "http://127.0.0.1:9600"]
 
   kibana:
     container_name: kibana
@@ -148,19 +148,23 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      # logstash:
+      #   condition: service_healthy
+      kibana: 
+        condition: service_healthy
     networks:
       - elastic
     user: root
     volumes:
       - filebeat-data:/usr/share/filebeat/data
       - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       # This is needed for filebeat to load container log path as specified in filebeat.yml
       - /var/lib/docker/containers/:/var/lib/docker/containers/:ro
       # # This is needed for filebeat to load jenkins build log path as specified in filebeat.yml
       # - /var/lib/docker/volumes/jenkins_home/_data/jobs/:/var/lib/docker/volumes/jenkins_home/_data/jobs/:ro
       # This is needed for filebeat to load logs for system and auth modules
-      # - /var/log/:/var/log/:ro
+      - /var/log/:/var/log/:ro
       # This is needed for filebeat to load logs for auditd module. you might have to install audit system
       # on ubuntu first (sudo apt-get install -y auditd audispd-plugins)
       # - /var/log/audit/:/var/log/audit/:ro
@@ -168,9 +172,9 @@ services:
       ELASTICSEARCH_HOST_PORT: https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
       ELASTIC_USERNAME: ${ELASTIC_USERNAME}
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-      # KIBANA_HOST_PORT: https://${KIBANA_HOST}:${KIBANA_PORT}
+      LOGSTASH_HOST_PORT: ${LOGSTASH_HOST}:${LOGSTASH_PORT}
+      KIBANA_HOST_PORT: https://${KIBANA_HOST}:${KIBANA_PORT}
       # APM_HOST_PORT: https://${APMSERVER_HOST}:${APMSERVER_PORT}
-      # LOGSTASH_HOST_PORT: https://${LOGSTASH_HOST}:${LOGSTASH_PORT}
     env_file:
       - ./secrets/.env.kibana.token
     deploy:
@@ -188,6 +192,7 @@ services:
     container_name: apm-server
     image: docker.elastic.co/apm/apm-server:${ELASTIC_VERSION}
     restart: unless-stopped
+    user: apm-server
     depends_on:
       kibana:
         condition: service_healthy
